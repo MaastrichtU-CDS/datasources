@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+
 class AbstractSource(ABC):
     def __init__(self) -> None:
         super().__init__()
