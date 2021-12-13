@@ -5,6 +5,8 @@ from datetime import datetime
 
 import rdflib as rdf
 from rdflib.term import Node, URIRef
+from SPARQLWrapper import SPARQLWrapper, POST, GET, POSTDIRECTLY, JSON
+import requests
 
 from .util import AbstractSource
 
@@ -121,3 +123,91 @@ class RDFLibSource(AbstractTripleSource):
 
     def sparql_update(self, query: str):
         return self.graph.update(query)
+
+class SPARQLTripleStore(AbstractTripleSource):
+    def __init__(
+        self,
+        endpoint: str,
+        update_endpoint: str = None,
+        gsp_endpoint: str = None,
+        gsp_update_endpoint: str = None
+    ) -> None:
+
+        self.gsp_endpoint = gsp_endpoint if gsp_endpoint else endpoint
+        self.gsp_update_endpoint = \
+            gsp_update_endpoint if gsp_update_endpoint else gsp_endpoint
+
+        self.sparql = SPARQLWrapper(
+            endpoint,
+            updateEndpoint=update_endpoint if update_endpoint else endpoint
+        )
+
+        super().__init__()
+
+    def sparql_update(self, query: str):
+        """Runs an update query against the endpoint
+
+        Args:
+            query (str): The query to be
+
+        Returns:
+            [type]: [description]
+        """
+        self.sparql.setQuery(query)
+        self.sparql.setMethod(POST)
+        self.sparql.setRequestMethod(POSTDIRECTLY)
+        results = self.sparql.query()
+
+        self.sparql.resetQuery()
+
+        return results.response.read()
+
+    def sparql_get(self, query: str):
+        """Does a sparql get query on the database, anything like select and
+        construct.
+
+        Args:
+            query (str): The query to run
+
+        Returns:
+            [type]: Type depends on query being run, usually a list of dicts
+        """
+        self.sparql.setQuery(query)
+        self.sparql.setMethod(GET)
+        self.sparql.setReturnFormat(JSON)
+
+        results = self.sparql.query().convert()
+
+        self.sparql.resetQuery()
+
+        return results["results"]["bindings"]
+
+    def export_file(self, path: Path):
+        self.download_graph().serialize(destination=path, format='turtle')
+
+    def download_graph(self, graph: URIRef = None) -> rdf.Graph:
+        """Helper(ish) function. downloads an entire graph through the graph
+        store protocol, rather than through queries. Much faster as a result.
+
+        Args:
+            graph (URIRef, optional): Graph to get. If no graph supplied, the
+            default graph is returned instead. Defaults to None.
+
+        Returns:
+            rdf.Graph: An RDFLib graph containing the graph in question.
+        """
+        ret = requests.get(
+            self.gsp_endpoint +
+            ('?default' if graph is None else f'?graph={graph}')
+        )
+
+        return rdf.Graph().parse(data=ret.text)
+
+
+class GraphDBTripleStore(SPARQLTripleStore):
+    def __init__(self, endpoint: str) -> None:
+        super().__init__(
+            endpoint,
+            update_endpoint=endpoint + '/statements',
+            gsp_endpoint=endpoint + '/rdf-graphs/service'
+        )
