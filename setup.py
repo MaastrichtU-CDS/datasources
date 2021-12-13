@@ -11,7 +11,7 @@ setup(
     packages=['datasources'],
     python_requires='>=3.6',
     install_requires=[
-        'rdflib'
+        'rdflib',
         'SPARQLWrapper',
         'requests'
     ]
