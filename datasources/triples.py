@@ -182,8 +182,15 @@ class SPARQLTripleStore(AbstractTripleSource):
 
         return results["results"]["bindings"]
 
-    def export_file(self, path: Path):
-        self.download_graph().serialize(destination=path, format='turtle')
+    def export_file(self, path: Path, graph: URIRef = None) -> None:
+        """Exports a particular graph to a turtle file.
+
+        Args:
+            path (Path): Path to where the file will be exported.
+            graph (URIRef, optional): Graph to get. If no graph supplied,
+            the default graph is returned instead. Defaults to None.
+        """
+        self.download_graph(graph).serialize(destination=path, format='turtle')
 
     def download_graph(self, graph: URIRef = None) -> rdf.Graph:
         """Helper(ish) function. downloads an entire graph through the graph
