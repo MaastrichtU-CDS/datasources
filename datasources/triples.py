@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 
 import rdflib as rdf
-from rdflib.term import Node, URIRef
+from rdflib.term import Node, URIRef, BNode
 from SPARQLWrapper import SPARQLWrapper, POST, GET, POSTDIRECTLY, JSON
 import requests
 
@@ -13,7 +13,7 @@ from .util import AbstractSource
 
 class AbstractTripleSource(AbstractSource):
     # TODO: add namespace
-    def import_file(self, path: Path):
+    def import_file(self, path: Path, graphURI: URIRef = None) -> None:
         """Generic method for importing files into a triples database. Should
         always work given a proper implementation of `self.insert_triples()`
         but should really be overriden with something more performant where
@@ -21,18 +21,22 @@ class AbstractTripleSource(AbstractSource):
 
         Args:
             path (Path): the path to the file to be imported
+            graph (URIRef): Optional, the graph to insert the triples into,
+            inserts into the default graph... by default <_<
         """
         g = rdf.Graph()
         g.parse(path)
 
         i = 0
+        leng = len(g)
         triples = []
         for triple in g:
             i += 1
             triples.append(triple)
-            if i >= 100:
-                self.insert_triples(triples)
+            if i == 100 or i == leng:
+                self.insert_triples(triples, graphURI)
                 i = 0
+                leng -= 100
                 triples = []
 
     def insert_triples(
@@ -53,8 +57,11 @@ class AbstractTripleSource(AbstractSource):
             None
         """
         triplestr = ''
+        fmt = lambda x: f'<{x}>' if type(x) == URIRef else \
+            f'_:{x}' if type(x) == BNode else f'"{x}"'
         for triple in triples:
-            triplestr += f'<{triple[0]}> <{triple[1]}> <{triple[2]}> .\n'
+            triplestr += \
+                f'{fmt(triple[0])} {fmt(triple[1])} {fmt(triple[2])} .\n'
 
         if graphURI:
             query = """
