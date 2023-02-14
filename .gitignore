@@ -1,5 +1,6 @@
 # Project specific/ less personal bits
 .vscode/
+.idea/
 
 # Github python gitignore
 # https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore
