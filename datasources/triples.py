@@ -86,7 +86,7 @@ class AbstractTripleSource(AbstractSource):
 
         return self.sparql_update(query)
 
-    def __get_sparql_dataframe(self, json_result_sparql):
+    def get_sparql_dataframe(self, json_result_sparql):
         """
         This function converts a JSON sparql result into a Pandas Dataframe.
         All columns are attempted to convert variable types to the corresponding pandas supported datatypes
@@ -238,7 +238,7 @@ class SPARQLTripleStore(AbstractTripleSource):
             return results["results"]["bindings"]
         
         if result_type == QueryOutputType.PANDAS_DATAFRAME:
-            return self.__get_sparql_dataframe(results)
+            return self.get_sparql_dataframe(results)
         
         return None
 
