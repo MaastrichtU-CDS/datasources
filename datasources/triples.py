@@ -10,6 +10,12 @@ import requests
 
 from .util import AbstractSource
 
+import pandas as pd
+from enum import Enum
+
+class QueryOutputType(Enum):
+    SPARQL_RESULT=1
+    PANDAS_DATAFRAME=2
 
 class AbstractTripleSource(AbstractSource):
     # TODO: add namespace
@@ -80,8 +86,49 @@ class AbstractTripleSource(AbstractSource):
 
         return self.sparql_update(query)
 
+    def __get_sparql_dataframe(self, json_result_sparql):
+        """
+        This function converts a JSON sparql result into a Pandas Dataframe.
+        All columns are attempted to convert variable types to the corresponding pandas supported datatypes
+
+        Args:
+            json_result_sparql (Dict): Dictionary containing SPARQL query results
+        
+        Returns:
+            Pandas DataFrame object representing the queried data
+        """
+        cols = json_result_sparql['head']['vars']
+
+        out = []
+        for row in json_result_sparql['results']['bindings']:
+            item = []
+            for c in cols:
+                item.append(row.get(c, {}).get('value'))
+            out.append(item)
+
+        df = pd.DataFrame(out, columns=cols)
+
+        if len(json_result_sparql['results']['bindings']) > 0:
+            firstRow = json_result_sparql['results']['bindings'][0]
+            for c in cols:
+                varType = firstRow.get(c,{}).get("type")
+                if varType == "uri":
+                    df[c] = df[c].astype("category")
+                if varType == "literal" or varType == "typed-literal":
+                    dataType = firstRow.get(c,{}).get("datatype")
+                    if dataType=="http://www.w3.org/2001/XMLSchema#int":
+                        df[c] = pd.to_numeric(df[c], errors='coerce')
+                    if dataType=="http://www.w3.org/2001/XMLSchema#integer":
+                        df[c] = pd.to_numeric(df[c], errors='coerce')
+                    if dataType=="http://www.w3.org/2001/XMLSchema#double":
+                        df[c] = pd.to_numeric(df[c], errors='coerce')
+                    if dataType=="http://www.w3.org/2001/XMLSchema#string":
+                        df[c] = df[c].astype("category")
+        
+        return df
+
     @abstractmethod
-    def sparql_get(self, query: str):
+    def sparql_get(self, query: str, result_type: QueryOutputType = QueryOutputType.SPARQL_RESULT):
         pass
 
     @abstractmethod
@@ -122,7 +169,7 @@ class RDFLibSource(AbstractTripleSource):
         quads = [(t[0], t[1], t[2], context) for t in triples]
         self.graph.addN(quads)
 
-    def sparql_get(self, query: str):
+    def sparql_get(self, query: str, result_type: QueryOutputType = QueryOutputType.SPARQL_RESULT):
         # TODO: figure out all the types returned by this
         ret = self.graph.query(query)
 
@@ -169,7 +216,7 @@ class SPARQLTripleStore(AbstractTripleSource):
 
         return results.response.read()
 
-    def sparql_get(self, query: str):
+    def sparql_get(self, query: str, result_type: QueryOutputType = QueryOutputType.SPARQL_RESULT):
         """Does a sparql get query on the database, anything like select and
         construct.
 
@@ -187,7 +234,13 @@ class SPARQLTripleStore(AbstractTripleSource):
 
         self.sparql.resetQuery()
 
-        return results["results"]["bindings"]
+        if result_type == QueryOutputType.SPARQL_RESULT:
+            return results["results"]["bindings"]
+        
+        if result_type == QueryOutputType.PANDAS_DATAFRAME:
+            return self.__get_sparql_dataframe(results)
+        
+        return None
 
     def export_file(self, path: Path, graph: URIRef = None) -> None:
         """Exports a particular graph to a turtle file.
