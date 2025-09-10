@@ -148,7 +148,7 @@ class RDFLibSource(AbstractTripleSource):
         super().__init__()
 
     def import_file(self, path: Path):
-        self.graph.parse(path.absolute)
+        self.graph.parse(path)
 
     def export_file(self, path: Path):
         if path.is_dir:
