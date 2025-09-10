@@ -174,6 +174,11 @@ class RDFLibSource(AbstractTripleSource):
         ret = self.graph.query(query)
 
         return ret
+    
+    def get_sparql_dataframe(self, rdflib_query_result: rdflib.plugins.sparql.processor.SPARQLResult):
+        columns = [str(v) for v in rdflib_query_result.vars]
+        df = pd.DataFrame(rdflib_query_result, columns=columns)
+        return df
 
     def sparql_update(self, query: str):
         return self.graph.update(query)
