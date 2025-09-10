@@ -175,7 +175,7 @@ class RDFLibSource(AbstractTripleSource):
 
         return ret
     
-    def get_sparql_dataframe(self, rdflib_query_result: rdf.plugins.sparql.processor.SPARQLResult):
+    def get_sparql_dataframe(self, rdflib_query_result):
         columns = [str(v) for v in rdflib_query_result.vars]
         df = pd.DataFrame(rdflib_query_result, columns=columns)
         return df
